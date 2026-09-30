@@ -15,6 +15,10 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/dracula.min.css">
 
+    <!-- CodeMirror Hint/Autocomplete Styles -->
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/hint/show-hint.min.css">
+
     <style>
         body,
         html {
@@ -28,7 +32,7 @@
             color: white;
         }
 
-        /* Obere Leiste (YouTube Steuerung) */
+        /* Obere Leiste */
         .top-bar {
             padding: 10px 20px;
             background-color: #1a1d20;
@@ -48,10 +52,8 @@
             transition: max-width 0.4s ease, opacity 0.4s ease, margin-left 0.4s ease;
         }
 
-        /* Klasse, wenn das Menü geöffnet ist - max-width für Lautstärkeregler erhöht */
         .yt-controls.open {
-            max-width: 650px;
-            /* Genug Platz für Input + Button + Lautstärke */
+            max-width: 850px;
             opacity: 1;
             margin-left: 15px;
         }
@@ -73,7 +75,6 @@
             height: calc(100vh - 60px);
         }
 
-        /* Linke Seite: Code-Editoren */
         .editors {
             width: 50%;
             display: flex;
@@ -114,14 +115,13 @@
             border: none;
         }
 
-        /* Das YouTube Video (Unten Links, exakt 6cm breit) */
+        /* Das YouTube Video (Unten Links) */
         .yt-corner {
             position: fixed;
             bottom: 15px;
             left: 15px;
             width: 6cm;
             height: 3.375cm;
-            /* 16:9 Format passend zu 6cm */
             z-index: 1000;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.8);
             border: 2px solid #444;
@@ -135,126 +135,248 @@
             height: 100%;
             border: none;
         }
+
+        /* Styling für die Autocomplete-Vorschläge */
+        .CodeMirror-hints {
+            background: #282a36;
+            border: 1px solid #6272a4;
+            color: #f8f8f2;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+            border-radius: 4px;
+            padding: 5px 0;
+        }
+
+        .CodeMirror-hint {
+            color: #8be9fd;
+            padding: 2px 10px;
+        }
+
+        li.CodeMirror-hint-active {
+            background: #44475a;
+            color: #ff79c6;
+        }
     </style>
 </head>
 
 <body>
 
-    <!-- Obere Leiste mit dem neuen Toggle-Button -->
+    <!-- Obere Leiste -->
     <div class="top-bar">
         <h5 class="m-0 text-danger fw-bold">Live Code Editor</h5>
-
-        <!-- Der Pfeil-Button -->
         <button class="btn btn-sm btn-outline-secondary ms-3" onclick="toggleMenu()"
             title="YouTube Menü ein/ausklappen">
             <span id="toggle-arrow">➤</span>
         </button>
-
-        <!-- Das versteckte Menü, das seitlich ausfährt -->
         <div id="yt-menu" class="yt-controls">
             <label for="videoId" class="form-label m-0 text-light me-2">Video ID:</label>
             <input type="text" class="form-control form-control-sm bg-dark text-light border-secondary me-2"
-                id="videoId" placeholder="z.B. dQw4w9WgXcQ" value="jfKfPfyJRdk" style="width: 180px;">
+                id="videoId" placeholder="z.B. dQw4w9WgXcQ" value="xKOyDDuQSVY" style="width: 180px;">
             <button class="btn btn-outline-light btn-sm me-4" onclick="loadVideo()">Laden</button>
 
-            <!-- Hinzugefügt: Lautstärkeregler -->
+            <!-- Link zum zuletzt geschauten Video -->
+            <a href="javascript:void(0)" id="resumeLink" class="text-info me-4"
+                style="display:none; text-decoration:none; font-size: 0.9rem;" onclick="resumeLastVideo()">Zuletzt:
+                ...</a>
+
             <label for="volumeSlider" class="form-label m-0 text-light me-2">🔉 Lautstärke:</label>
-            <input type="range" class="form-range" id="volumeSlider" min="0" max="100" value="20" style="width: 120px;"
+            <input type="range" class="form-range" id="volumeSlider" min="0" max="100" value="5" style="width: 120px;"
                 oninput="changeVolume(this.value)">
         </div>
     </div>
 
     <!-- Hauptbereich -->
     <div class="workspace">
-        <!-- Editor Bereich -->
         <div class="editors">
             <div class="editor-box">
                 <div class="editor-title">HTML</div>
-                <textarea
-                    id="html-code"><h1 style="text-align:center; font-family:sans-serif;">Willkommen beim Coden!</h1>&#10;<p style="text-align:center;">Klicke oben auf den Pfeil, um die Video-ID und Lautstärke zu ändern.</p></textarea>
+                <textarea id="html-code"></textarea>
             </div>
             <div class="editor-box">
                 <div class="editor-title">CSS</div>
-                <textarea id="css-code">body { background-color: #f0f0f0; }</textarea>
+                <textarea id="css-code"></textarea>
             </div>
             <div class="editor-box">
                 <div class="editor-title">JavaScript</div>
-                <textarea id="js-code">console.log("Alles bereit!");</textarea>
+                <textarea id="js-code"></textarea>
             </div>
         </div>
 
-        <!-- Vorschau Bereich -->
         <div class="preview-container">
             <iframe id="preview-frame" class="preview-frame"></iframe>
         </div>
     </div>
 
-    <!-- YouTube Video Unten Links (Angepasst für API) -->
+    <!-- YouTube Video -->
     <div class="yt-corner">
         <div id="ytPlayer"></div>
     </div>
 
-    <!-- Skripte -->
+    <!-- CodeMirror Grundskripte -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/xml/xml.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/css/css.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/javascript/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/htmlmixed/htmlmixed.min.js"></script>
 
-    <!-- Hinzugefügt: YouTube Iframe API -->
+    <!-- CodeMirror Autocomplete Skripte -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/hint/show-hint.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/hint/xml-hint.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/hint/html-hint.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/hint/css-hint.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/hint/javascript-hint.min.js"></script>
+
+    <!-- CodeMirror Auto-Close Skripte -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/edit/closetag.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/edit/closebrackets.min.js"></script>
+
+    <!-- YouTube Iframe API -->
     <script src="https://www.youtube.com/iframe_api"></script>
 
     <script>
-        // --- YouTube API Logik für Laden und Lautstärke ---
+        // --- YouTube API Logik ---
         let player;
+        let saveStateInterval;
 
         function onYouTubeIframeAPIReady() {
             player = new YT.Player('ytPlayer', {
-                videoId: document.getElementById('videoId').value.trim(),
+                videoId: 'xKOyDDuQSVY',
+                playerVars: {
+                    'autoplay': 1,
+                    'controls': 1
+                },
                 events: {
-                    'onReady': onPlayerReady
+                    'onReady': onPlayerReady,
+                    'onStateChange': onPlayerStateChange
                 }
             });
+            showResumeLink();
         }
 
         function onPlayerReady(event) {
             const initialVolume = document.getElementById('volumeSlider').value;
             player.setVolume(initialVolume);
+            player.playVideo();
         }
 
-        function changeVolume(val) {
-            if (player && player.setVolume) {
-                player.setVolume(val);
+        function onPlayerStateChange(event) {
+            if (event.data == YT.PlayerState.PLAYING) {
+                if (!saveStateInterval) {
+                    saveStateInterval = setInterval(saveCurrentVideoState, 2000);
+                }
+            } else {
+                clearInterval(saveStateInterval);
+                saveStateInterval = null;
             }
         }
+
+        function saveCurrentVideoState() {
+            if (player && player.getCurrentTime) {
+                const time = player.getCurrentTime();
+                const videoData = player.getVideoData();
+                const currentId = (videoData && videoData.video_id) ? videoData.video_id : document.getElementById('videoId').value.trim();
+
+                // NEU: Wenn das Standardvideo läuft, brechen wir ab und speichern NICHTS.
+                if (currentId === 'xKOyDDuQSVY') {
+                    return;
+                }
+
+                if (currentId && time > 0) {
+                    localStorage.setItem('fakeTube_lastVideo', JSON.stringify({ id: currentId, time: time }));
+                    showResumeLink();
+                }
+            }
+        }
+
+        function formatTime(seconds) {
+            const m = Math.floor(seconds / 60);
+            const s = Math.floor(seconds % 60);
+            return m + ":" + (s < 10 ? "0" : "") + s;
+        }
+
+        function showResumeLink() {
+            const saved = localStorage.getItem('fakeTube_lastVideo');
+            if (saved) {
+                const data = JSON.parse(saved);
+                const link = document.getElementById('resumeLink');
+                link.style.display = 'inline';
+                link.innerText = `Zuletzt: ${data.id} (${formatTime(data.time)})`;
+            }
+        }
+
+        function resumeLastVideo() {
+            const saved = localStorage.getItem('fakeTube_lastVideo');
+            if (saved) {
+                const data = JSON.parse(saved);
+                document.getElementById('videoId').value = data.id;
+                player.loadVideoById({ videoId: data.id, startSeconds: data.time });
+            }
+        }
+
+        function changeVolume(val) { if (player && player.setVolume) player.setVolume(val); }
 
         function loadVideo() {
             const videoId = document.getElementById('videoId').value.trim();
-            if (videoId && player && player.loadVideoById) {
-                player.loadVideoById(videoId);
-            } else {
-                alert("Bitte eine gültige Video-ID eingeben.");
-            }
+            if (videoId && player && player.loadVideoById) player.loadVideoById(videoId);
+            else alert("Bitte eine gültige Video-ID eingeben.");
         }
 
-        // --- 1. Neu: Toggle Funktion für das Menü ---
+        // --- Toggle Menü ---
         function toggleMenu() {
-            const menu = document.getElementById('yt-menu');
-            const arrow = document.getElementById('toggle-arrow');
-
-            // Klasse "open" hinzufügen oder entfernen (steuert die CSS Animation)
-            menu.classList.toggle('open');
-            arrow.classList.toggle('arrow-rotated');
+            document.getElementById('yt-menu').classList.toggle('open');
+            document.getElementById('toggle-arrow').classList.toggle('arrow-rotated');
         }
 
-        // --- 3. Code Editor Logik ---
-        const htmlEditor = CodeMirror.fromTextArea(document.getElementById("html-code"), { mode: "xml", theme: "dracula", lineNumbers: true });
-        const cssEditor = CodeMirror.fromTextArea(document.getElementById("css-code"), { mode: "css", theme: "dracula", lineNumbers: true });
-        const jsEditor = CodeMirror.fromTextArea(document.getElementById("js-code"), { mode: "javascript", theme: "dracula", lineNumbers: true });
+        // --- Code laden & Editor Setup ---
+        const defaultHtml = `<h1 style="text-align:center; font-family:sans-serif;">Function Test!</h1>\n<p style="text-align:center;">Button is for the Funktion Test</p>\n<button id="button1"></button>\n<h3 style="font-family:sans-serif;" id="text1">Test!</h3>`;
+        const defaultCss = `body { background-color: #f0f0f0; }\n\nbutton { background-color: #3455; height: 5em; width: 5em; }\n\nbutton:active { background-color: #3458; }`;
+        const defaultJs = `document.addEventListener('DOMContentLoaded', () => {\n    const meinButton = document.getElementById('button1');\n    const meinText = document.getElementById('text1');\n\n    if (meinButton && meinText) {\n        meinButton.addEventListener('click', () => {\n            meinText.style.color = 'red';\n        });\n    }\n    console.log('Alles bereit!');\n});\n`;
 
+        document.getElementById("html-code").value = localStorage.getItem("fakeTube_html") || defaultHtml;
+        document.getElementById("css-code").value = localStorage.getItem("fakeTube_css") || defaultCss;
+        document.getElementById("js-code").value = localStorage.getItem("fakeTube_js") || defaultJs;
+
+        // Allgemeine Optionen für alle Editoren
+        const editorOptions = {
+            theme: "dracula",
+            lineNumbers: true,
+            autoCloseBrackets: true,
+            extraKeys: { "Ctrl-Space": "autocomplete" }
+        };
+
+        // HTML Editor
+        const htmlEditor = CodeMirror.fromTextArea(document.getElementById("html-code"), {
+            ...editorOptions,
+            mode: "text/html",
+            autoCloseTags: true
+        });
+
+        const cssEditor = CodeMirror.fromTextArea(document.getElementById("css-code"), { ...editorOptions, mode: "css" });
+        const jsEditor = CodeMirror.fromTextArea(document.getElementById("js-code"), { ...editorOptions, mode: "javascript" });
+
+        // Autocomplete beim Tippen
+        function enableAutoSuggest(editor) {
+            editor.on("inputRead", function (cm, change) {
+                if (!cm.state.completionActive && change.text[0].match(/^[a-zA-Z0-9_<\-\.]$/)) {
+                    CodeMirror.commands.autocomplete(cm, null, { completeSingle: false });
+                }
+            });
+        }
+        enableAutoSuggest(htmlEditor);
+        enableAutoSuggest(cssEditor);
+        enableAutoSuggest(jsEditor);
+
+        // Vorschau aktualisieren & Speichern
         function updatePreview() {
             const html = htmlEditor.getValue();
-            const css = `<style>${cssEditor.getValue()}</style>`;
-            const js = `<script>${jsEditor.getValue()}<\/script>`;
+            const cssCode = cssEditor.getValue();
+            const jsCode = jsEditor.getValue();
+
+            localStorage.setItem("fakeTube_html", html);
+            localStorage.setItem("fakeTube_css", cssCode);
+            localStorage.setItem("fakeTube_js", jsCode);
+
+            const css = `<style>${cssCode}</style>`;
+            const js = `<script>${jsCode}<\/script>`;
 
             const previewFrame = document.getElementById("preview-frame");
             const preview = previewFrame.contentDocument || previewFrame.contentWindow.document;

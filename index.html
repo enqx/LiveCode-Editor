@@ -128,6 +128,7 @@
             overflow: hidden;
         }
 
+        /* Die Iframe-Klasse für das Video */
         .yt-corner iframe {
             width: 100%;
             height: 100%;
@@ -203,10 +204,8 @@
         </div>
     </div>
 
-    <!-- YouTube Video -->
-    <div class="yt-corner">
-        <div id="ytPlayer"></div>
-    </div>
+    <!-- YouTube Video (Wird nun sicher per JavaScript vorgebaut) -->
+    <div class="yt-corner" id="yt-container"></div>
 
     <!-- CodeMirror Grundskripte -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
@@ -225,24 +224,28 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/edit/closebrackets.min.js"></script>
 
     <script>
-        // --- Offizieller Weg die YouTube API zu laden ---
+        // --- 1. LÖSUNG GEGEN DEN POSTMESSAGE FEHLER ---
+        // Wir bauen das iFrame manuell auf, MIT korrekter URL und enablejsapi=1, BEVOR die API lädt.
+        const currentOrigin = encodeURIComponent(window.location.origin);
+        document.getElementById('yt-container').innerHTML =
+            `<iframe id="ytPlayer" 
+                     src="https://www.youtube.com/embed/xKOyDDuQSVY?enablejsapi=1&autoplay=1&controls=1&origin=${currentOrigin}" 
+                     allow="autoplay; fullscreen" 
+                     style="width: 100%; height: 100%; border: none;">
+             </iframe>`;
+
+        // --- 2. YouTube API laden ---
         var tag = document.createElement('script');
         tag.src = "https://www.youtube.com/iframe_api";
         var firstScriptTag = document.getElementsByTagName('script')[0];
         firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
 
-        // --- YouTube API Logik ---
         let player;
         let saveStateInterval;
 
         function onYouTubeIframeAPIReady() {
+            // Die API muss den Player nicht mehr neu bauen, sondern "verbindet" sich nur mit unserem fertigen iframe.
             player = new YT.Player('ytPlayer', {
-                videoId: 'xKOyDDuQSVY',
-                playerVars: {
-                    'autoplay': 1,
-                    'controls': 1,
-                    'origin': window.location.origin
-                },
                 events: {
                     'onReady': onPlayerReady,
                     'onStateChange': onPlayerStateChange
@@ -352,7 +355,6 @@
         enableAutoSuggest(cssEditor);
         enableAutoSuggest(jsEditor);
 
-        // --- LÖSUNG: srcdoc statt document.write() ---
         let updateTimeout;
         function updatePreview() {
             clearTimeout(updateTimeout);
@@ -369,8 +371,6 @@
                 const css = `<style>${cssCode}</style>`;
                 const js = `<script>${jsCode}<\/script>`;
 
-                // Anstatt den Frame zu öffnen und zu schließen (was Ressourcen blockiert),
-                // setzen wir den kompletten Code als String in das srcdoc-Attribut.
                 const fullCode = html + css + js;
                 document.getElementById("preview-frame").srcdoc = fullCode;
 

@@ -19,7 +19,7 @@ Ein leichter, direkt im Browser laufender Live-Code-Editor für HTML, CSS und Ja
 
 ### Option 2: Lokal auf dem Computer ausführen
 1. Lade das Repository als ZIP herunter (oder klone es).
-2. Öffne die Datei `index.html` per Doppelklick in deinem Browser.
+2. Öffne die Datei `index.html` per Server in deinem Browser.
 3. Fange an zu programmieren!
 
 ## 🎵 So steuerst du das YouTube-Video
@@ -37,6 +37,10 @@ Ein leichter, direkt im Browser laufender Live-Code-Editor für HTML, CSS und Ja
 * **[Bootstrap 5](https://getbootstrap.com/):** Für das Layout und die obere Navigationsleiste.
 * **[CodeMirror](https://codemirror.net/5/):** Für die Code-Eingabefelder und das Syntax-Highlighting.
 * **[YouTube Iframe API](https://developers.google.com/youtube/iframe_api_reference):** Um das Video einzubetten und die Lautstärke über einen eigenen Slider steuern zu können.
+
+## 💡 Tipp
+
+Wenn du keine Werbung willst benutze einfach Ad-Blocker oder starte die Webseite über den localhost
 
 ---
 *Viel Spaß beim Coden!* 🚀

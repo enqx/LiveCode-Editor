@@ -84,6 +84,7 @@
             flex: 1;
             display: flex;
             flex-direction: column;
+            min-height: 0;
         }
 
         .editor-title {
@@ -154,6 +155,24 @@
             background: #44475a;
             color: #ff79c6;
         }
+
+        /* Scrollbar-Design für den Editor */
+        .CodeMirror-vscrollbar::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        .CodeMirror-vscrollbar::-webkit-scrollbar-track {
+            background: #1e1f29;
+        }
+
+        .CodeMirror-vscrollbar::-webkit-scrollbar-thumb {
+            background: #6272a4;
+            border-radius: 5px;
+        }
+
+        .CodeMirror-vscrollbar::-webkit-scrollbar-thumb:hover {
+            background: #bd93f9;
+        }
     </style>
 </head>
 
@@ -167,7 +186,7 @@
             <span id="toggle-arrow">➤</span>
         </button>
         <div id="yt-menu" class="yt-controls">
-            <label for="videoId" class="form-label m-0 text-light me-2">Video ID:</label>
+            <label for="videoId" class="form-label m-0 text-light me-2">Video (Link/ID):</label>
             <input type="text" class="form-control form-control-sm bg-dark text-light border-secondary me-2"
                 id="videoId" placeholder="z.B. dQw4w9WgXcQ" value="xKOyDDuQSVY" style="width: 180px;">
             <button class="btn btn-outline-light btn-sm me-4" onclick="loadVideo()">Laden</button>
@@ -177,7 +196,7 @@
                 ...</a>
 
             <label for="volumeSlider" class="form-label m-0 text-light me-2">🔉 Lautstärke:</label>
-            <input type="range" class="form-range" id="volumeSlider" min="0" max="100" value="20" style="width: 120px;"
+            <input type="range" class="form-range" id="volumeSlider" min="0" max="100" value="5" style="width: 120px;"
                 oninput="changeVolume(this.value)">
         </div>
     </div>
@@ -224,12 +243,15 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/edit/closebrackets.min.js"></script>
 
     <script>
+        // --- Gespeicherte Lautstärke abrufen (Standard: 20) ---
+        const savedVolume = localStorage.getItem("fakeTube_volume") || 20;
+        document.getElementById("volumeSlider").value = savedVolume;
+
         // --- 1. LÖSUNG GEGEN DEN POSTMESSAGE FEHLER ---
-        // Wir bauen das iFrame manuell auf, MIT korrekter URL und enablejsapi=1, BEVOR die API lädt.
         const currentOrigin = encodeURIComponent(window.location.origin);
         document.getElementById('yt-container').innerHTML =
             `<iframe id="ytPlayer" 
-                     src="https://www.youtube.com/embed/xKOyDDuQSVY?enablejsapi=1&autoplay=1&controls=1&origin=${currentOrigin}" 
+                     src="https://www.youtube.com/embed/xKOyDDuQSVY?enablejsapi=1&autoplay=1&controls=1&mute=1&origin=${currentOrigin}" 
                      allow="autoplay; fullscreen" 
                      style="width: 100%; height: 100%; border: none;">
              </iframe>`;
@@ -242,9 +264,9 @@
 
         let player;
         let saveStateInterval;
+        let isMutedByAutoplay = true;
 
         function onYouTubeIframeAPIReady() {
-            // Die API muss den Player nicht mehr neu bauen, sondern "verbindet" sich nur mit unserem fertigen iframe.
             player = new YT.Player('ytPlayer', {
                 events: {
                     'onReady': onPlayerReady,
@@ -255,9 +277,20 @@
         }
 
         function onPlayerReady(event) {
-            const initialVolume = document.getElementById('volumeSlider').value;
-            player.setVolume(initialVolume);
+            player.mute();
             player.playVideo();
+
+            // Beim allerersten Klick irgendwo auf die Seite schalten wir den Ton auf die gespeicherte Lautstärke ein!
+            document.addEventListener('click', function unmuteOnFirstClick() {
+                if (isMutedByAutoplay && player && player.unMute) {
+                    player.unMute();
+                    const currentVolume = document.getElementById('volumeSlider').value;
+                    player.setVolume(currentVolume);
+                    isMutedByAutoplay = false;
+
+                    document.removeEventListener('click', unmuteOnFirstClick);
+                }
+            }, { once: true });
         }
 
         function onPlayerStateChange(event) {
@@ -311,12 +344,42 @@
             }
         }
 
-        function changeVolume(val) { if (player && player.setVolume) player.setVolume(val); }
+        function changeVolume(val) {
+            // Lautstärke für das nächste Mal speichern
+            localStorage.setItem("fakeTube_volume", val);
+
+            if (player && player.setVolume) {
+                player.unMute();
+                player.setVolume(val);
+                isMutedByAutoplay = false;
+            }
+        }
 
         function loadVideo() {
-            const videoId = document.getElementById('videoId').value.trim();
-            if (videoId && player && player.loadVideoById) player.loadVideoById(videoId);
-            else alert("Bitte eine gültige Video-ID eingeben.");
+            let input = document.getElementById('videoId').value.trim();
+            if (!input) {
+                alert("Bitte eine Video-ID oder einen Link eingeben.");
+                return;
+            }
+
+            let finalVideoId = input;
+
+            if (input.includes("youtube.com/watch?v=")) {
+                finalVideoId = input.split("v=")[1].split("&")[0];
+            } else if (input.includes("youtu.be/")) {
+                finalVideoId = input.split("youtu.be/")[1].split("?")[0];
+            }
+
+            document.getElementById('videoId').value = finalVideoId;
+
+            if (finalVideoId && player && player.loadVideoById) {
+                player.loadVideoById(finalVideoId);
+
+                player.unMute();
+                const currentVolume = document.getElementById('volumeSlider').value;
+                player.setVolume(currentVolume);
+                isMutedByAutoplay = false;
+            }
         }
 
         function toggleMenu() {
